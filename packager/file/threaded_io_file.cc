@@ -4,8 +4,9 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+#include <gflags/gflags.h>
 #include "packager/file/threaded_io_file.h"
-
+#include "packager/app/subtitle_flags.h"
 #include "packager/base/bind.h"
 #include "packager/base/bind_helpers.h"
 #include "packager/base/location.h"
@@ -174,14 +175,28 @@ void ThreadedIoFile::RunInInputMode() {
   while (true) {
     int64_t read_result =
         internal_file_->Read(&io_buffer_[0], io_buffer_.size());
-    if (read_result <= 0) {
-      NoBarrier_Store(&eof_, read_result == 0);
-      NoBarrier_Store(&internal_file_error_, read_result);
-      cache_.Close();
-      return;
-    }
-    if (cache_.Write(&io_buffer_[0], read_result) == 0) {
-      return;
+    if(!FLAGS_live_subtitles) {
+        if (read_result <= 0) {
+          NoBarrier_Store(&eof_, read_result == 0);
+          NoBarrier_Store(&internal_file_error_, read_result);
+          cache_.Close();
+          return;
+        }
+        if (cache_.Write(&io_buffer_[0], read_result) == 0) {
+          return;
+        }
+    } else {
+        //LOG(WARNING) << "FLAG --live_subtitles is active";
+        if (read_result < 0) {
+          NoBarrier_Store(&eof_, read_result == 0);
+          NoBarrier_Store(&internal_file_error_, read_result);
+          cache_.Close();
+          return;
+        }
+        if (read_result == 0) continue;
+        if (cache_.Write(&io_buffer_[0], read_result) == 0) {
+          return;
+        }
     }
   }
 }

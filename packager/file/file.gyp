@@ -13,6 +13,8 @@
       'target_name': 'file',
       'type': '<(component)',
       'sources': [
+        '../app/subtitle_flags.cc',
+        '../app/subtitle_flags.h',
         'callback_file.cc',
         'callback_file.h',
         'file.cc',

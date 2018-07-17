@@ -62,6 +62,8 @@
       'target_name': 'packager',
       'type': 'executable',
       'sources': [
+        'app/subtitle_flags.cc',
+        'app/subtitle_flags.h',
         'app/ad_cue_generator_flags.cc',
         'app/ad_cue_generator_flags.h',
         'app/crypto_flags.cc',
