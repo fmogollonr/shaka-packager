@@ -721,6 +721,11 @@ class PackagerFunctionalTest(PackagerAppTest):
                               self._GetFlags(output_dash=True))
     self._CheckTestResults('video-audio-text')
 
+  def testVideoNoEditList(self):
+    stream = self._GetStream('video', test_file='bear-640x360-no_edit_list.mp4')
+    self.assertPackageSuccess([stream], self._GetFlags(output_dash=True))
+    self._CheckTestResults('video-no-edit-list')
+
   def testAvcAacTs(self):
     # Currently we only support live packaging for ts.
     self.assertPackageSuccess(
@@ -1026,7 +1031,14 @@ class PackagerFunctionalTest(PackagerAppTest):
     flags = self._GetFlags(output_dash=True, output_hls=True,
                            generate_static_mpd=True, ad_cues='1.5')
     self.assertPackageSuccess(streams, flags)
-    self._CheckTestResults('vtt-text-to-mp4-with-ad-cues')
+    # Mpd cannot be validated right now since we don't generate determinstic
+    # mpd with multiple inputs due to thread racing.
+    # TODO(b/73349711): Generate determinstic mpd or at least validate mpd
+    #                   schema.
+    self._CheckTestResults(
+        'vtt-text-to-mp4-with-ad-cues',
+        diff_files_policy=DiffFilesPolicy(
+            allowed_diff_files=['output.mpd'], exact=False))
 
   def testWebmSubsampleEncryption(self):
     streams = [
@@ -1474,7 +1486,8 @@ class PackagerFunctionalTest(PackagerAppTest):
     self._AssertStreamInfo(self.output[1], 'is_encrypted: true')
 
   def testHlsSegmentedWebVtt(self):
-    streams = self._GetStreams(['audio', 'video'], segmented=True)
+    streams = self._GetStreams(
+        ['audio', 'video'], output_format='ts', segmented=True)
     streams += self._GetStreams(
         ['text'], test_files=['bear-subtitle-english.vtt'], segmented=True)
 

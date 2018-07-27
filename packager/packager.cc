@@ -73,6 +73,8 @@ MuxerOptions CreateMuxerOptions(const StreamDescriptor& stream,
   MuxerOptions options;
 
   options.mp4_params = params.mp4_output_params;
+  options.transport_stream_timestamp_offset_ms =
+      params.transport_stream_timestamp_offset_ms;
   options.temp_dir = params.temp_dir;
   options.bandwidth = stream.bandwidth;
   options.output_file_name = stream.output;
@@ -197,13 +199,6 @@ Status ValidateStreamDescriptor(bool dump_stream_info,
     RETURN_IF_ERROR(ValidateSegmentTemplate(stream.segment_template));
   }
 
-  if (stream.output.find('$') != std::string::npos) {
-    // "$" is only allowed if the output file name is a template, which is
-    // used to support one file per Representation per Period when there are
-    // Ad Cues.
-    RETURN_IF_ERROR(ValidateSegmentTemplate(stream.output));
-  }
-
   // There are some specifics that must be checked based on which format
   // we are writing to.
   const MediaContainerName output_format = GetOutputFormat(stream);
@@ -246,6 +241,20 @@ Status ValidateStreamDescriptor(bool dump_stream_info,
                     "Please specify 'init_segment'. All non-TS multi-segment "
                     "content must provide an init segment.");
     }
+  }
+
+  if (stream.output.find('$') != std::string::npos) {
+    if (output_format == CONTAINER_WEBVTT) {
+      return Status(
+          error::UNIMPLEMENTED,
+          "WebVTT output with one file per Representation per Period "
+          "is not supported yet. Please use fMP4 instead. If that needs to be "
+          "supported, please file a feature request on GitHub.");
+    }
+    // "$" is only allowed if the output file name is a template, which is
+    // used to support one file per Representation per Period when there are
+    // Ad Cues.
+    RETURN_IF_ERROR(ValidateSegmentTemplate(stream.output));
   }
 
   return Status::OK;
@@ -740,6 +749,9 @@ Status CreateAllJobs(const std::vector<StreamDescriptor>& stream_descriptors,
   std::vector<std::reference_wrapper<const StreamDescriptor>>
       audio_video_streams;
 
+  bool has_transport_audio_video_streams = false;
+  bool has_non_transport_audio_video_streams = false;
+
   for (const StreamDescriptor& stream : stream_descriptors) {
     // TODO: Find a better way to determine what stream type a stream
     // descriptor is as |stream_selector| may use an index. This would
@@ -748,6 +760,18 @@ Status CreateAllJobs(const std::vector<StreamDescriptor>& stream_descriptors,
       text_streams.push_back(stream);
     } else {
       audio_video_streams.push_back(stream);
+
+      switch (GetOutputFormat(stream)) {
+        case CONTAINER_MPEG2TS:
+        case CONTAINER_AAC:
+        case CONTAINER_AC3:
+        case CONTAINER_EAC3:
+          has_transport_audio_video_streams = true;
+          break;
+        default:
+          has_non_transport_audio_video_streams = true;
+          break;
+      }
     }
   }
 
@@ -756,9 +780,26 @@ Status CreateAllJobs(const std::vector<StreamDescriptor>& stream_descriptors,
   std::sort(audio_video_streams.begin(), audio_video_streams.end(),
             media::StreamDescriptorCompareFn);
 
-  RETURN_IF_ERROR(CreateTextJobs(text_streams, packaging_params, sync_points,
-                                 muxer_listener_factory, muxer_factory,
-                                 mpd_notifier, job_manager));
+  if (!text_streams.empty()) {
+    PackagingParams text_packaging_params = packaging_params;
+    if (text_packaging_params.transport_stream_timestamp_offset_ms > 0) {
+      if (has_transport_audio_video_streams &&
+          has_non_transport_audio_video_streams) {
+        LOG(WARNING) << "There may be problems mixing transport streams and "
+                        "non-transport streams. For example, the subtitles may "
+                        "be out of sync with non-transport streams.";
+      } else if (has_non_transport_audio_video_streams) {
+        // Don't insert the X-TIMESTAMP-MAP in WebVTT if there is no transport
+        // stream.
+        text_packaging_params.transport_stream_timestamp_offset_ms = 0;
+      }
+    }
+
+    RETURN_IF_ERROR(CreateTextJobs(text_streams, text_packaging_params,
+                                   sync_points, muxer_listener_factory,
+                                   muxer_factory, mpd_notifier, job_manager));
+  }
+
   RETURN_IF_ERROR(CreateAudioVideoJobs(
       audio_video_streams, packaging_params, encryption_key_source, sync_points,
       muxer_listener_factory, muxer_factory, job_manager));
