@@ -134,7 +134,6 @@
         'packager_test.cc',
       ],
       'dependencies': [
-        'base/base.gyp:base',
         'libpackager',
         'testing/gmock.gyp:gmock',
         'testing/gtest.gyp:gtest',
