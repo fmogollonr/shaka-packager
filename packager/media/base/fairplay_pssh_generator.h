@@ -1,26 +1,27 @@
-// Copyright 2017 Google Inc. All rights reserved.
+// Copyright 2018 Google LLC. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
-#ifndef MEDIA_BASE_WIDEVINE_PSSH_GENERATOR_H_
-#define MEDIA_BASE_WIDEVINE_PSSH_GENERATOR_H_
+#ifndef PACKAGER_MEDIA_BASE_FAIRPLAY_PSSH_GENERATOR_H_
+#define PACKAGER_MEDIA_BASE_FAIRPLAY_PSSH_GENERATOR_H_
 
-#include "packager/media/base/fourccs.h"
 #include "packager/media/base/pssh_generator.h"
 
 namespace shaka {
 namespace media {
 
-const uint8_t kWidevineSystemId[] = {0xed, 0xef, 0x8b, 0xa9, 0x79, 0xd6,
-                                     0x4a, 0xce, 0xa3, 0xc8, 0x27, 0xdc,
-                                     0xd5, 0x1d, 0x21, 0xed};
+// Unofficial FairPlay system id extracted from
+// https://forums.developer.apple.com/thread/6185.
+const uint8_t kFairPlaySystemId[] = {0x29, 0x70, 0x1F, 0xE4, 0x3C, 0xC7,
+                                     0x4A, 0x34, 0x8C, 0x5B, 0xAE, 0x90,
+                                     0xC7, 0x43, 0x9A, 0x47};
 
-class WidevinePsshGenerator : public PsshGenerator {
+class FairPlayPsshGenerator : public PsshGenerator {
  public:
-  explicit WidevinePsshGenerator(FourCC protection_scheme);
-  ~WidevinePsshGenerator() override;
+  FairPlayPsshGenerator();
+  ~FairPlayPsshGenerator() override;
 
   /// @name PsshGenerator implemetation overrides.
   /// @{
@@ -28,8 +29,8 @@ class WidevinePsshGenerator : public PsshGenerator {
   /// @}
 
  private:
-  WidevinePsshGenerator& operator=(const WidevinePsshGenerator&) = delete;
-  WidevinePsshGenerator(const WidevinePsshGenerator&) = delete;
+  FairPlayPsshGenerator& operator=(const FairPlayPsshGenerator&) = delete;
+  FairPlayPsshGenerator(const FairPlayPsshGenerator&) = delete;
 
   // PsshGenerator implemetation overrides.
 
@@ -39,11 +40,9 @@ class WidevinePsshGenerator : public PsshGenerator {
   base::Optional<std::vector<uint8_t>> GeneratePsshDataFromKeyIdAndKey(
       const std::vector<uint8_t>& key_id,
       const std::vector<uint8_t>& key) const override;
-
-  FourCC protection_scheme_ = FOURCC_NULL;
 };
 
 }  // namespace media
 }  // namespace shaka
 
-#endif  // MEDIA_BASE_WIDEVINE_PSSH_GENERATOR_H_
+#endif  // PACKAGER_MEDIA_BASE_FAIRPLAY_PSSH_GENERATOR_H_

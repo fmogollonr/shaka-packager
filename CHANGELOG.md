@@ -16,7 +16,7 @@
 
 ## [2.1.0] - 2018-05-22
 ### Added
-- Support Widevine and Playready PSSH generation internally in packager (#245).
+- Support Widevine and PlayReady PSSH generation internally in packager (#245).
   Documentation will be updated later.
 - Support removing segments outside of live window in DASH and HLS (#223).
 - Support UTCTiming for DASH (#311).
@@ -80,7 +80,7 @@
   - Support for attributes RESOLUTION, CHANNELS, AUTOSELECT and DEFAULT.
   - Live and Event playlists.
   - fMP4 in HLS (including byte range support).
-  - DRM: Widevine and Fairplay.
+  - DRM: Widevine and FairPlay.
   - I-Frame playlist.
 - Enhanced subtitle support.
   - Segmented WebVTT in fMP4.

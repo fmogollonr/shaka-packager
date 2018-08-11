@@ -7,6 +7,7 @@
 #include "packager/media/base/key_source.h"
 
 #include "packager/base/logging.h"
+#include "packager/media/base/fairplay_pssh_generator.h"
 #include "packager/media/base/playready_pssh_generator.h"
 #include "packager/media/base/raw_key_pssh_generator.h"
 #include "packager/media/base/widevine_pssh_generator.h"
@@ -18,7 +19,7 @@ EncryptionKey::EncryptionKey() {}
 
 EncryptionKey::~EncryptionKey() {}
 
-KeySource::KeySource(int protection_systems_flags) {
+KeySource::KeySource(int protection_systems_flags, FourCC protection_scheme) {
   if (protection_systems_flags & COMMON_PROTECTION_SYSTEM_FLAG) {
     pssh_generators_.emplace_back(new RawKeyPsshGenerator());
   }
@@ -28,7 +29,11 @@ KeySource::KeySource(int protection_systems_flags) {
   }
 
   if (protection_systems_flags & WIDEVINE_PROTECTION_SYSTEM_FLAG) {
-    pssh_generators_.emplace_back(new WidevinePsshGenerator());
+    pssh_generators_.emplace_back(new WidevinePsshGenerator(protection_scheme));
+  }
+
+  if (protection_systems_flags & FAIRPLAY_PROTECTION_SYSTEM_FLAG) {
+    pssh_generators_.emplace_back(new FairPlayPsshGenerator());
   }
 }
 

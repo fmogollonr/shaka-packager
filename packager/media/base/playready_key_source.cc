@@ -61,9 +61,11 @@ bool Base64StringToBytes(const std::string& base64_string,
 }
 
 PlayReadyKeySource::PlayReadyKeySource(const std::string& server_url,
-                                       int protection_system_flags)
+                                       int protection_system_flags,
+                                       FourCC protection_scheme)
     // PlayReady PSSH is retrived from PlayReady server response.
-    : KeySource(protection_system_flags & ~PLAYREADY_PROTECTION_SYSTEM_FLAG),
+    : KeySource(protection_system_flags & ~PLAYREADY_PROTECTION_SYSTEM_FLAG,
+                protection_scheme),
       encryption_key_(new EncryptionKey),
       server_url_(server_url) {}
 
@@ -72,21 +74,18 @@ PlayReadyKeySource::PlayReadyKeySource(
     const std::string& client_cert_file,
     const std::string& client_cert_private_key_file,
     const std::string& client_cert_private_key_password,
-    int protection_system_flags)
+    int protection_system_flags,
+    FourCC protection_scheme)
     // PlayReady PSSH is retrived from PlayReady server response.
-    : KeySource(protection_system_flags & ~PLAYREADY_PROTECTION_SYSTEM_FLAG),
+    : KeySource(protection_system_flags & ~PLAYREADY_PROTECTION_SYSTEM_FLAG,
+                protection_scheme),
       encryption_key_(new EncryptionKey),
       server_url_(server_url),
       client_cert_file_(client_cert_file),
       client_cert_private_key_file_(client_cert_private_key_file),
       client_cert_private_key_password_(client_cert_private_key_password) {}
 
-PlayReadyKeySource::PlayReadyKeySource(
-    std::unique_ptr<EncryptionKey> encryption_key)
-    : KeySource(PLAYREADY_PROTECTION_SYSTEM_FLAG),
-      encryption_key_(std::move(encryption_key)) {}
-
-PlayReadyKeySource::~PlayReadyKeySource() {}
+PlayReadyKeySource::~PlayReadyKeySource() = default;
 
 Status RetrieveTextInXMLElement(const std::string& element,
                                 const std::string& xml,
@@ -185,7 +184,7 @@ Status PlayReadyKeySource::FetchKeysWithProgramIdentifier(
   }
   status = SetKeyInformationFromServerResponse(acquire_license_response,
                                                encryption_key.get());
-  // Playready does not specify different streams.
+  // PlayReady does not specify different streams.
   const char kEmptyDrmLabel[] = "";
   EncryptionKeyMap encryption_key_map;
   encryption_key_map[kEmptyDrmLabel] = std::move(encryption_key);
@@ -199,7 +198,7 @@ Status PlayReadyKeySource::FetchKeysWithProgramIdentifier(
 
 Status PlayReadyKeySource::FetchKeys(EmeInitDataType init_data_type,
                                      const std::vector<uint8_t>& init_data) {
-  // Do nothing for playready encryption/decryption.
+  // Do nothing for PlayReady encryption/decryption.
   return Status::OK;
 }
 
