@@ -11,6 +11,7 @@
 #include "packager/base/bind_helpers.h"
 #include "packager/base/location.h"
 #include "packager/base/threading/worker_pool.h"
+#include <unistd.h>
 
 namespace shaka {
 
@@ -189,7 +190,10 @@ void ThreadedIoFile::RunInInputMode() {
         cache_.Close();
         return;
       }
-      if (read_result == 0) continue;
+      if (read_result == 0) {
+        usleep(100000);
+        continue;
+      }
       if (cache_.Write(&io_buffer_[0], read_result) == 0) {
         return;
       }
