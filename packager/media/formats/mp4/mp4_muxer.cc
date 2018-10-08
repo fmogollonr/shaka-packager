@@ -44,6 +44,8 @@ void SetStartAndEndFromOffsetAndSize(size_t offset,
 
 FourCC CodecToFourCC(Codec codec, H26xStreamFormat h26x_stream_format) {
   switch (codec) {
+    case kCodecAV1:
+      return FOURCC_av01;
     case kCodecH264:
       return h26x_stream_format ==
                      H26xStreamFormat::kNalUnitStreamWithParameterSetNalus
@@ -58,8 +60,6 @@ FourCC CodecToFourCC(Codec codec, H26xStreamFormat h26x_stream_format) {
       return FOURCC_vp08;
     case kCodecVP9:
       return FOURCC_vp09;
-    case kCodecVP10:
-      return FOURCC_vp10;
     case kCodecAAC:
       return FOURCC_mp4a;
     case kCodecAC3:
@@ -268,10 +268,15 @@ Status MP4Muxer::DelayInitializeMuxer() {
     }
 
     if (stream->is_encrypted() && options().mp4_params.include_pssh_in_stream) {
+      moov->pssh.clear();
       const auto& key_system_info = stream->encryption_config().key_system_info;
-      moov->pssh.resize(key_system_info.size());
-      for (size_t j = 0; j < key_system_info.size(); j++)
-        moov->pssh[j].raw_box = key_system_info[j].psshs;
+      for (const ProtectionSystemSpecificInfo& system : key_system_info) {
+        if (system.psshs.empty())
+          continue;
+        ProtectionSystemSpecificHeader pssh;
+        pssh.raw_box = system.psshs;
+        moov->pssh.push_back(pssh);
+      }
     }
   }
 

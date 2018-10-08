@@ -22,6 +22,7 @@
 #include "packager/media/base/rcheck.h"
 #include "packager/media/base/video_stream_info.h"
 #include "packager/media/codecs/ac3_audio_util.h"
+#include "packager/media/codecs/av1_codec_configuration_record.h"
 #include "packager/media/codecs/avc_decoder_configuration_record.h"
 #include "packager/media/codecs/ec3_audio_util.h"
 #include "packager/media/codecs/es_descriptor.h"
@@ -59,6 +60,8 @@ H26xStreamFormat GetH26xStreamFormat(FourCC fourcc) {
 
 Codec FourCCToCodec(FourCC fourcc) {
   switch (fourcc) {
+    case FOURCC_av01:
+      return kCodecAV1;
     case FOURCC_avc1:
     case FOURCC_avc3:
       return kCodecH264;
@@ -69,8 +72,6 @@ Codec FourCCToCodec(FourCC fourcc) {
       return kCodecVP8;
     case FOURCC_vp09:
       return kCodecVP9;
-    case FOURCC_vp10:
-      return kCodecVP10;
     case FOURCC_Opus:
       return kCodecOpus;
     case FOURCC_dtsc:
@@ -503,6 +504,8 @@ bool MP4MediaParser::ParseMoov(BoxReader* reader) {
       if (desc_idx >= samp_descr.video_entries.size())
         desc_idx = 0;
       const VideoSampleEntry& entry = samp_descr.video_entries[desc_idx];
+      std::vector<uint8_t> codec_configuration_data =
+          entry.codec_configuration.data;
 
       uint32_t coded_width = entry.width;
       uint32_t coded_height = entry.height;
@@ -518,10 +521,19 @@ bool MP4MediaParser::ParseMoov(BoxReader* reader) {
       const FourCC actual_format = entry.GetActualFormat();
       const Codec video_codec = FourCCToCodec(actual_format);
       switch (actual_format) {
+        case FOURCC_av01: {
+          AV1CodecConfigurationRecord av1_config;
+          if (!av1_config.Parse(codec_configuration_data)) {
+            LOG(ERROR) << "Failed to parse av1c.";
+            return false;
+          }
+          codec_string = av1_config.GetCodecString();
+          break;
+        }
         case FOURCC_avc1:
         case FOURCC_avc3: {
           AVCDecoderConfigurationRecord avc_config;
-          if (!avc_config.Parse(entry.codec_configuration.data)) {
+          if (!avc_config.Parse(codec_configuration_data)) {
             LOG(ERROR) << "Failed to parse avcc.";
             return false;
           }
@@ -558,7 +570,7 @@ bool MP4MediaParser::ParseMoov(BoxReader* reader) {
         case FOURCC_hev1:
         case FOURCC_hvc1: {
           HEVCDecoderConfigurationRecord hevc_config;
-          if (!hevc_config.Parse(entry.codec_configuration.data)) {
+          if (!hevc_config.Parse(codec_configuration_data)) {
             LOG(ERROR) << "Failed to parse hevc.";
             return false;
           }
@@ -567,12 +579,18 @@ bool MP4MediaParser::ParseMoov(BoxReader* reader) {
           break;
         }
         case FOURCC_vp08:
-        case FOURCC_vp09:
-        case FOURCC_vp10: {
+        case FOURCC_vp09: {
           VPCodecConfigurationRecord vp_config;
-          if (!vp_config.ParseMP4(entry.codec_configuration.data)) {
+          if (!vp_config.ParseMP4(codec_configuration_data)) {
             LOG(ERROR) << "Failed to parse vpcc.";
             return false;
+          }
+          if (actual_format == FOURCC_vp09 &&
+              (!vp_config.is_level_set() || vp_config.level() == 0)) {
+            const double kUnknownSampleDuration = 0.0;
+            vp_config.SetVP9Level(coded_width, coded_height,
+                                  kUnknownSampleDuration);
+            vp_config.WriteMP4(&codec_configuration_data);
           }
           codec_string = vp_config.GetCodecString(video_codec);
           break;
@@ -597,9 +615,8 @@ bool MP4MediaParser::ParseMoov(BoxReader* reader) {
       std::shared_ptr<VideoStreamInfo> video_stream_info(new VideoStreamInfo(
           track->header.track_id, timescale, duration, video_codec,
           GetH26xStreamFormat(actual_format), codec_string,
-          entry.codec_configuration.data.data(),
-          entry.codec_configuration.data.size(), coded_width, coded_height,
-          pixel_width, pixel_height,
+          codec_configuration_data.data(), codec_configuration_data.size(),
+          coded_width, coded_height, pixel_width, pixel_height,
           0,  // trick_play_factor
           nalu_length_size, track->media.header.language.code, is_encrypted));
 
